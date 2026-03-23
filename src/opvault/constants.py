@@ -41,3 +41,7 @@ CREDENTIAL_TYPES = frozenset({
 })
 
 DEFAULT_CREDENTIAL_TYPE = "password"
+
+# Export format
+EXPORT_FORMAT_VERSION = 1
+DEFAULT_EXPORT_FILENAME = "vault.opvault"
