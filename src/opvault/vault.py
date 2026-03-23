@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import base64
 import json
+import secrets
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -11,7 +13,9 @@ from opvault.constants import (
     ARGON2_MEMORY_COST,
     ARGON2_PARALLELISM,
     ARGON2_TIME_COST,
+    EXPORT_FORMAT_VERSION,
     KDF_ARGON2ID,
+    KDF_PBKDF2,
     PBKDF2_ITERATIONS,
 )
 from opvault.crypto import (
@@ -23,8 +27,10 @@ from opvault.crypto import (
     get_preferred_kdf,
     verify_password,
 )
+from opvault.exceptions import ExportError
 from opvault.models import Credential, VaultConfig, VaultData
 from opvault.storage import (
+    delete_vault_dir,
     init_vault_dir,
     read_vault_conf,
     read_vault_enc,
@@ -145,6 +151,97 @@ class Vault:
             "total_credentials": len(data.credentials),
             "by_type": type_counts,
         }
+
+    def export_vault(self, password: str) -> tuple[dict[str, Any], int, str]:
+        """Export the vault re-encrypted under a fresh export password.
+
+        Returns:
+            (export_dict, credential_count, export_password)
+        """
+        key = self._unlock(password)
+        data = _load_vault_data(key, self.base_path)
+        config = read_vault_conf(self.base_path)
+
+        export_password = secrets.token_urlsafe(18)
+        export_salt = generate_salt()
+        export_kdf_params = {KDF_PBKDF2: {"iterations": PBKDF2_ITERATIONS}}[KDF_PBKDF2]
+        export_key = derive_key(export_password, export_salt, KDF_PBKDF2, export_kdf_params)
+        export_verification = create_verification_blob(export_key)
+
+        plaintext = json.dumps(data.to_dict(), indent=2).encode("utf-8")
+        vault_data_enc = encrypt(plaintext, export_key)
+
+        export_dict: dict[str, Any] = {
+            "opvault_export": EXPORT_FORMAT_VERSION,
+            "kdf": KDF_PBKDF2,
+            "kdf_params": export_kdf_params,
+            "salt": base64.b64encode(export_salt).decode("ascii"),
+            "verification_blob": export_verification,
+            "vault_data": base64.b64encode(vault_data_enc).decode("ascii"),
+            "created": datetime.now(UTC).isoformat(),
+            "source_version": config.version,
+        }
+        return export_dict, len(data.credentials), export_password
+
+    @classmethod
+    def import_vault(
+        cls,
+        export_data: dict[str, Any],
+        export_password: str,
+        master_password: str,
+        base_path: Path | None = None,
+        force: bool = False,
+    ) -> tuple[Vault, int]:
+        """Import a vault from an export dict, re-encrypting under a new master password.
+
+        Returns:
+            (Vault, credential_count)
+        """
+        base = base_path or Path.cwd()
+
+        fmt_version = export_data.get("opvault_export")
+        if fmt_version != EXPORT_FORMAT_VERSION:
+            raise ExportError(
+                f"Unsupported export format version: {fmt_version} "
+                f"(expected {EXPORT_FORMAT_VERSION})"
+            )
+
+        # Decrypt export data
+        export_salt = base64.b64decode(export_data["salt"])
+        export_kdf = export_data["kdf"]
+        export_kdf_params = export_data.get("kdf_params", {})
+        export_key = derive_key(export_password, export_salt, export_kdf, export_kdf_params)
+        verify_password(export_key, export_data["verification_blob"])
+
+        vault_data_enc = base64.b64decode(export_data["vault_data"])
+        plaintext = decrypt(vault_data_enc, export_key)
+        vault_data = VaultData.from_dict(json.loads(plaintext.decode("utf-8")))
+        credential_count = len(vault_data.credentials)
+
+        # Handle existing vault
+        if vault_exists(base):
+            if not force:
+                raise ExportError("Vault already exists. Use --force to overwrite.")
+            delete_vault_dir(base)
+
+        # Re-key under master password
+        kdf = get_preferred_kdf()
+        salt = generate_salt()
+        kdf_params = _build_kdf_params(kdf)
+        key = derive_key(master_password, salt, kdf, kdf_params)
+        verification_blob = create_verification_blob(key)
+
+        init_vault_dir(base)
+        config = VaultConfig(
+            kdf=kdf,
+            kdf_params=kdf_params,
+            salt=base64.b64encode(salt).decode("ascii"),
+            verification_blob=verification_blob,
+        )
+        write_vault_conf(config, base)
+        _save_vault_data(vault_data, key, base)
+
+        return cls(base), credential_count
 
     def exists(self) -> bool:
         """Check if a vault exists at the base path."""
