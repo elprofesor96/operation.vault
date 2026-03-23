@@ -266,19 +266,19 @@ def dump_cmd(ctx: click.Context, fmt: str, redact: bool, output: Path | None) ->
         print_error(str(e))
 
 
-@cli.command("import")
+@cli.command("load")
 @click.argument("file", type=click.Path(exists=True, path_type=Path))
 @click.option(
     "--format",
     "fmt",
     type=click.Choice(["json", "text"], case_sensitive=False),
     default=None,
-    help="Import format (auto-detected from extension if omitted).",
+    help="Input format (auto-detected from extension if omitted).",
 )
 @click.option("--type", "cred_type", default="password", help="Type for text imports.")
 @click.pass_context
-def import_cmd(ctx: click.Context, file: Path, fmt: str | None, cred_type: str) -> None:
-    """Import credentials from a JSON or text file."""
+def load_cmd(ctx: click.Context, file: Path, fmt: str | None, cred_type: str) -> None:
+    """Load credentials from a JSON or text file."""
     base_path = ctx.obj["base_path"]
     try:
         # Auto-detect format from extension
@@ -297,7 +297,7 @@ def import_cmd(ctx: click.Context, file: Path, fmt: str | None, cred_type: str) 
             vault.add(password, cred)
             added += 1
 
-        print_success(f"Imported {added} credential(s).")
+        print_success(f"Loaded {added} credential(s).")
     except (OpvaultError, ValueError) as e:
         print_error(str(e))
 
