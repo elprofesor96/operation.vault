@@ -342,12 +342,14 @@ def import_cmd(ctx: click.Context, file: Path, force: bool) -> None:
             raise ExportError(f"Invalid export file: {e}") from e
 
         export_password = click.prompt("Export password", hide_input=True)
+        vault_data, count = Vault.decrypt_export_data(export_data, export_password)
+
         master_password = click.prompt(
             "Master password", hide_input=True, confirmation_prompt=True
         )
 
         vault, count = Vault.import_vault(
-            export_data, export_password, master_password, base_path, force=force
+            vault_data, master_password, base_path, force=force
         )
         print_success(f"Imported vault with {count} credential(s).")
     except OpvaultError as e:
