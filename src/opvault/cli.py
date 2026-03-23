@@ -8,8 +8,8 @@ from pathlib import Path
 import rich_click as click
 
 from opvault.constants import CREDENTIAL_TYPES, DEFAULT_CREDENTIAL_TYPE
-from opvault.exceptions import OpvaultError
 from opvault.dumpers import to_csv, to_json, to_markdown
+from opvault.exceptions import OpvaultError
 from opvault.loaders import from_json, from_text
 from opvault.models import Credential
 from opvault.output import (
