@@ -254,8 +254,8 @@ def dump_cmd(ctx: click.Context, fmt: str, redact: bool, output: Path | None) ->
         vault = Vault(base_path)
         creds = vault.list_(password)
 
-        exporters = {"json": to_json, "csv": to_csv, "markdown": to_markdown}
-        result = exporters[fmt](creds, redact=redact)
+        dumpers = {"json": to_json, "csv": to_csv, "markdown": to_markdown}
+        result = dumpers[fmt](creds, redact=redact)
 
         if output:
             output.write_text(result, encoding="utf-8")
