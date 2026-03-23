@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
+import json
 import stat
 from pathlib import Path
 
 import rich_click as click
 
-from opvault.constants import CREDENTIAL_TYPES, DEFAULT_CREDENTIAL_TYPE
+from opvault.constants import CREDENTIAL_TYPES, DEFAULT_CREDENTIAL_TYPE, DEFAULT_EXPORT_FILENAME
 from opvault.dumpers import to_csv, to_json, to_markdown
-from opvault.exceptions import OpvaultError
+from opvault.exceptions import ExportError, OpvaultError
 from opvault.loaders import from_json, from_text
 from opvault.models import Credential
 from opvault.output import (
@@ -299,6 +300,57 @@ def load_cmd(ctx: click.Context, file: Path, fmt: str | None, cred_type: str) ->
 
         print_success(f"Loaded {added} credential(s).")
     except (OpvaultError, ValueError) as e:
+        print_error(str(e))
+
+
+@cli.command("export")
+@click.option(
+    "--output",
+    "-o",
+    type=click.Path(path_type=Path),
+    default=DEFAULT_EXPORT_FILENAME,
+    help=f"Output file (default: {DEFAULT_EXPORT_FILENAME}).",
+)
+@click.pass_context
+def export_cmd(ctx: click.Context, output: Path) -> None:
+    """Export the vault to a portable encrypted file."""
+    base_path = ctx.obj["base_path"]
+    try:
+        password = _get_password()
+        vault = Vault(base_path)
+        export_dict, count, export_password = vault.export_vault(password)
+        output.write_text(json.dumps(export_dict, indent=2) + "\n", encoding="utf-8")
+        print_success(f"Exported vault ({count} credentials) to {output}")
+        print_warning(f"Export password: {export_password}")
+        click.echo("Share this password securely with the recipient.")
+    except OpvaultError as e:
+        print_error(str(e))
+
+
+@cli.command("import")
+@click.argument("file", type=click.Path(exists=True, path_type=Path))
+@click.option("--force", "-f", is_flag=True, help="Overwrite existing vault.")
+@click.pass_context
+def import_cmd(ctx: click.Context, file: Path, force: bool) -> None:
+    """Import a vault from a portable encrypted file."""
+    base_path = ctx.obj["base_path"]
+    try:
+        raw = file.read_text(encoding="utf-8")
+        try:
+            export_data = json.loads(raw)
+        except json.JSONDecodeError as e:
+            raise ExportError(f"Invalid export file: {e}") from e
+
+        export_password = click.prompt("Export password", hide_input=True)
+        master_password = click.prompt(
+            "Master password", hide_input=True, confirmation_prompt=True
+        )
+
+        vault, count = Vault.import_vault(
+            export_data, export_password, master_password, base_path, force=force
+        )
+        print_success(f"Imported vault with {count} credential(s).")
+    except OpvaultError as e:
         print_error(str(e))
 
 
