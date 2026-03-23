@@ -184,21 +184,20 @@ class Vault:
         return export_dict, len(data.credentials), export_password
 
     @classmethod
-    def import_vault(
+    def decrypt_export_data(
         cls,
         export_data: dict[str, Any],
         export_password: str,
-        master_password: str,
-        base_path: Path | None = None,
-        force: bool = False,
-    ) -> tuple[Vault, int]:
-        """Import a vault from an export dict, re-encrypting under a new master password.
+    ) -> tuple[VaultData, int]:
+        """Validate and decrypt an export dict.
 
         Returns:
-            (Vault, credential_count)
-        """
-        base = base_path or Path.cwd()
+            (VaultData, credential_count)
 
+        Raises:
+            ExportError: On invalid format version.
+            InvalidPasswordError: On wrong export password.
+        """
         fmt_version = export_data.get("opvault_export")
         if fmt_version != EXPORT_FORMAT_VERSION:
             raise ExportError(
@@ -206,7 +205,6 @@ class Vault:
                 f"(expected {EXPORT_FORMAT_VERSION})"
             )
 
-        # Decrypt export data
         export_salt = base64.b64decode(export_data["salt"])
         export_kdf = export_data["kdf"]
         export_kdf_params = export_data.get("kdf_params", {})
@@ -216,15 +214,29 @@ class Vault:
         vault_data_enc = base64.b64decode(export_data["vault_data"])
         plaintext = decrypt(vault_data_enc, export_key)
         vault_data = VaultData.from_dict(json.loads(plaintext.decode("utf-8")))
+        return vault_data, len(vault_data.credentials)
+
+    @classmethod
+    def import_vault(
+        cls,
+        vault_data: VaultData,
+        master_password: str,
+        base_path: Path | None = None,
+        force: bool = False,
+    ) -> tuple[Vault, int]:
+        """Create a new vault from decrypted VaultData, encrypted under master_password.
+
+        Returns:
+            (Vault, credential_count)
+        """
+        base = base_path or Path.cwd()
         credential_count = len(vault_data.credentials)
 
-        # Handle existing vault
         if vault_exists(base):
             if not force:
                 raise ExportError("Vault already exists. Use --force to overwrite.")
             delete_vault_dir(base)
 
-        # Re-key under master password
         kdf = get_preferred_kdf()
         salt = generate_salt()
         kdf_params = _build_kdf_params(kdf)
