@@ -235,19 +235,19 @@ def purge(ctx: click.Context, type_filter: str | None, force: bool) -> None:
         print_error(str(e))
 
 
-@cli.command("export")
+@cli.command("dump")
 @click.option(
     "--format",
     "fmt",
     type=click.Choice(["json", "csv", "markdown"], case_sensitive=False),
     default="json",
-    help="Export format.",
+    help="Output format.",
 )
 @click.option("--redact", is_flag=True, help="Mask secrets in output.")
 @click.option("--output", "-o", type=click.Path(path_type=Path), default=None, help="Output file.")
 @click.pass_context
-def export_cmd(ctx: click.Context, fmt: str, redact: bool, output: Path | None) -> None:
-    """Export credentials to JSON, CSV, or Markdown."""
+def dump_cmd(ctx: click.Context, fmt: str, redact: bool, output: Path | None) -> None:
+    """Dump credentials to JSON, CSV, or Markdown."""
     base_path = ctx.obj["base_path"]
     try:
         password = _get_password()
@@ -259,7 +259,7 @@ def export_cmd(ctx: click.Context, fmt: str, redact: bool, output: Path | None) 
 
         if output:
             output.write_text(result, encoding="utf-8")
-            print_success(f"Exported {len(creds)} credential(s) to {output}")
+            print_success(f"Dumped {len(creds)} credential(s) to {output}")
         else:
             click.echo(result, nl=False)
     except OpvaultError as e:
