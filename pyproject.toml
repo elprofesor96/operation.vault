@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "opvault"
-version = "0.1.0"
+version = "1.0.0"
 description = "Secure credential storage for security engagements"
 readme = "README.md"
 license = { file = "LICENSE.md" }
