@@ -60,8 +60,8 @@ def _clear_session() -> None:
         pass
 
 
-@click.group()
-@click.version_option(package_name="opvault")
+@click.group(context_settings={"help_option_names": ["-h", "--help"]})
+@click.version_option(None, "-v", "--version", package_name="opvault")
 @click.option(
     "--vault-path",
     type=click.Path(path_type=Path),
