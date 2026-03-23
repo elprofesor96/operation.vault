@@ -31,3 +31,7 @@ class StorageError(OpvaultError):
 
 class CryptoError(OpvaultError):
     """Raised on encryption/decryption failures unrelated to password."""
+
+
+class ExportError(OpvaultError):
+    """Raised on export/import failures."""
