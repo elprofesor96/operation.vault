@@ -19,11 +19,10 @@ from opvault.crypto import (
     decrypt,
     derive_key,
     encrypt,
-    get_preferred_kdf,
     generate_salt,
+    get_preferred_kdf,
     verify_password,
 )
-from opvault.exceptions import VaultNotFoundError
 from opvault.models import Credential, VaultConfig, VaultData
 from opvault.storage import (
     init_vault_dir,

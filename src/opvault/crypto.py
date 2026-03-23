@@ -7,10 +7,13 @@ import os
 
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives.hashes import SHA256
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
 from opvault.constants import (
+    ARGON2_MEMORY_COST,
+    ARGON2_PARALLELISM,
+    ARGON2_TIME_COST,
     KDF_ARGON2ID,
     KDF_PBKDF2,
     KEY_LENGTH,
@@ -18,9 +21,6 @@ from opvault.constants import (
     PBKDF2_ITERATIONS,
     SALT_LENGTH,
     VERIFICATION_TOKEN_LENGTH,
-    ARGON2_TIME_COST,
-    ARGON2_MEMORY_COST,
-    ARGON2_PARALLELISM,
 )
 from opvault.exceptions import CryptoError, InvalidPasswordError
 
@@ -131,8 +131,8 @@ def decrypt(data: bytes, key: bytes) -> bytes:
 
     try:
         return aesgcm.decrypt(nonce, ciphertext, None)
-    except InvalidTag:
-        raise InvalidPasswordError("Decryption failed: wrong password or tampered data")
+    except InvalidTag as err:
+        raise InvalidPasswordError("Decryption failed: wrong password or tampered data") from err
 
 
 def create_verification_blob(key: bytes) -> str:

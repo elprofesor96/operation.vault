@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from opvault.constants import (
@@ -42,12 +42,15 @@ class Credential:
     url: str = ""
     scope: str = ""
     note: str = ""
-    added: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    added: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
     def __post_init__(self) -> None:
         self.name = validate_credential_name(self.name)
         if self.type not in CREDENTIAL_TYPES:
-            msg = f"Invalid credential type: {self.type!r}. Must be one of {sorted(CREDENTIAL_TYPES)}"
+            msg = (
+                f"Invalid credential type: {self.type!r}. "
+                f"Must be one of {sorted(CREDENTIAL_TYPES)}"
+            )
             raise ValueError(msg)
 
     def to_dict(self) -> dict[str, Any]:
@@ -72,7 +75,7 @@ class Credential:
             url=data.get("url", ""),
             scope=data.get("scope", ""),
             note=data.get("note", ""),
-            added=data.get("added", datetime.now(timezone.utc).isoformat()),
+            added=data.get("added", datetime.now(UTC).isoformat()),
         )
 
 
@@ -81,7 +84,7 @@ class VaultConfig:
     """Vault configuration stored in vault.conf."""
 
     version: int = VAULT_VERSION
-    created: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    created: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
     kdf: str = KDF_PBKDF2
     kdf_params: dict[str, Any] = field(default_factory=dict)
     salt: str = ""  # base64-encoded
