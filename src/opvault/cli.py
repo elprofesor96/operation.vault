@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import shutil
 import stat
+import subprocess
 from pathlib import Path
 
 import rich_click as click
@@ -59,6 +61,21 @@ def _clear_session() -> None:
         SESSION_FILE.unlink(missing_ok=True)
     except OSError:
         pass
+
+
+def _copy_to_clipboard(text: str) -> None:
+    """Copy text to the system clipboard."""
+    if shutil.which("pbcopy"):
+        cmd = ["pbcopy"]
+    elif shutil.which("xclip"):
+        cmd = ["xclip", "-selection", "clipboard"]
+    elif shutil.which("xsel"):
+        cmd = ["xsel", "--clipboard", "--input"]
+    elif shutil.which("wl-copy"):
+        cmd = ["wl-copy"]
+    else:
+        raise click.ClickException("No clipboard utility found (pbcopy, xclip, xsel, wl-copy).")
+    subprocess.run(cmd, input=text.encode("utf-8"), check=True)  # noqa: S603
 
 
 @click.group(context_settings={"help_option_names": ["-h", "--help"]})
@@ -137,16 +154,22 @@ def add(
 
 @cli.command()
 @click.argument("name")
-@click.option("--plain", is_flag=True, help="Print only the secret (for piping).")
+@click.option("--plain", "-p", is_flag=True, help="Print only the secret (for piping).")
+@click.option("--copy", "-c", is_flag=True, help="Copy the secret to clipboard.")
 @click.option("--field", type=str, default=None, help="Print a specific field value.")
 @click.pass_context
-def get(ctx: click.Context, name: str, plain: bool, field: str | None) -> None:
+def get(ctx: click.Context, name: str, plain: bool, copy: bool, field: str | None) -> None:
     """Retrieve a credential by name."""
     base_path = ctx.obj["base_path"]
     try:
         password = _get_password()
         vault = Vault(base_path)
         cred = vault.get(password, name)
+
+        if copy:
+            _copy_to_clipboard(cred.secret)
+            print_success("Copied to clipboard.")
+            return
 
         if plain:
             click.echo(cred.secret)
