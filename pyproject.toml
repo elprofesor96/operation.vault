@@ -30,7 +30,7 @@ dependencies = [
 argon2 = ["argon2-cffi>=23.1"]
 dev = [
     "pytest>=8.0",
-    "ruff>=0.8",
+    "ruff>=0.15.10",
     "mypy>=1.13",
 ]
 
