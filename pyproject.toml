@@ -31,7 +31,7 @@ argon2 = ["argon2-cffi>=25.1.0"]
 dev = [
     "pytest>=8.0",
     "ruff>=0.15.10",
-    "mypy>=1.13",
+    "mypy>=1.20.1",
 ]
 
 [project.scripts]
